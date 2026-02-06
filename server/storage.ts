@@ -1,38 +1,42 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import {
+  calculations,
+  type InsertCalculation,
+  type Calculation
+} from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createCalculation(calculation: InsertCalculation): Promise<Calculation>;
+  getCalculations(): Promise<Calculation[]>;
+  getCalculation(id: number): Promise<Calculation | undefined>;
+  deleteCalculation(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async createCalculation(insertCalculation: InsertCalculation): Promise<Calculation> {
+    const [calculation] = await db
+      .insert(calculations)
+      .values(insertCalculation)
+      .returning();
+    return calculation;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getCalculations(): Promise<Calculation[]> {
+    return await db.select().from(calculations).orderBy(calculations.createdAt);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getCalculation(id: number): Promise<Calculation | undefined> {
+    const [calculation] = await db
+      .select()
+      .from(calculations)
+      .where(eq(calculations.id, id));
+    return calculation;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async deleteCalculation(id: number): Promise<void> {
+    await db.delete(calculations).where(eq(calculations.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
