@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { CalendarIcon, Plus, Trash2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,19 @@ interface DisbursalInput {
   amount: number;
 }
 
+interface RateChangeInput {
+  id: string;
+  date: Date;
+  rate: number;
+}
+
 export interface LoanInputData {
   totalLoan: number;
   tenureYears: number;
   interestRate: number;
   startDate: Date;
   disbursals: DisbursalInput[];
+  rateChanges: RateChangeInput[];
 }
 
 interface LoanInputsProps {
@@ -29,22 +36,69 @@ interface LoanInputsProps {
   onSave?: (name: string) => void;
 }
 
+// Helper to handle manual date entry
+const DateInput = ({ date, onChange, label }: { date: Date, onChange: (date: Date) => void, label?: string }) => {
+  const [inputValue, setInputValue] = useState(format(date, "yyyy-MM-dd"));
+
+  useEffect(() => {
+    setInputValue(format(date, "yyyy-MM-dd"));
+  }, [date]);
+
+  const handleManualChange = (val: string) => {
+    setInputValue(val);
+    const parsed = parse(val, "yyyy-MM-dd", new Date());
+    if (!isNaN(parsed.getTime())) {
+      onChange(parsed);
+    }
+  };
+
+  return (
+    <div className="flex gap-1 flex-col w-full">
+      {label && <Label className="text-xs text-muted-foreground">{label}</Label>}
+      <div className="flex gap-2">
+        <Input 
+          type="date" 
+          value={inputValue} 
+          onChange={(e) => handleManualChange(e.target.value)}
+          className="flex-1"
+        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" className="shrink-0">
+              <CalendarIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={(d) => d && onChange(d)}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+    </div>
+  );
+};
+
 export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
   const [totalLoan, setTotalLoan] = useState<string>("7500000");
-  const [tenure, setTenure] = useState<string>("20");
+  const [tenure, setTenure] = useState<string>("24");
   const [rate, setRate] = useState<string>("8.5");
-  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState<Date>(new Date(2026, 0, 1));
   
   const [disbursals, setDisbursals] = useState<DisbursalInput[]>([
-    { id: '1', date: new Date(), amount: 1500000 }
+    { id: '1', date: new Date(2026, 0, 1), amount: 750000 }
   ]);
+
+  const [rateChanges, setRateChanges] = useState<RateChangeInput[]>([]);
 
   const [calculationName, setCalculationName] = useState("");
 
-  // Auto-calculate on changes (debounced could be better but this is fine for local calc)
   useEffect(() => {
     handleCalculate();
-  }, [totalLoan, tenure, rate, startDate, disbursals]);
+  }, [totalLoan, tenure, rate, startDate, disbursals, rateChanges]);
 
   const handleCalculate = () => {
     const loanAmount = parseFloat(totalLoan);
@@ -58,7 +112,8 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
       tenureYears,
       interestRate,
       startDate,
-      disbursals
+      disbursals,
+      rateChanges
     });
   };
 
@@ -71,7 +126,18 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
       { 
         id: Math.random().toString(36).substr(2, 9), 
         date: newDate, 
-        amount: 1000000 
+        amount: 500000 
+      }
+    ]);
+  };
+
+  const addRateChange = () => {
+    setRateChanges([
+      ...rateChanges,
+      { 
+        id: Math.random().toString(36).substr(2, 9), 
+        date: new Date(), 
+        rate: parseFloat(rate) 
       }
     ]);
   };
@@ -82,27 +148,30 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
     }
   };
 
+  const removeRateChange = (id: string) => {
+    setRateChanges(rateChanges.filter(r => r.id !== id));
+  };
+
   const updateDisbursal = (id: string, field: 'date' | 'amount', value: any) => {
-    setDisbursals(disbursals.map(d => {
-      if (d.id === id) {
-        return { ...d, [field]: value };
-      }
-      return d;
-    }));
+    setDisbursals(disbursals.map(d => d.id === id ? { ...d, [field]: value } : d));
+  };
+
+  const updateRateChange = (id: string, field: 'date' | 'rate', value: any) => {
+    setRateChanges(rateChanges.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
   const loadSampleData = () => {
     setTotalLoan("7500000");
     setTenure("24");
     setRate("8.5");
-    const baseDate = new Date();
+    const baseDate = new Date(2026, 0, 1);
     setStartDate(baseDate);
     setDisbursals([
-      { id: '1', date: baseDate, amount: 1500000 },
-      { id: '2', date: new Date(baseDate.getFullYear(), baseDate.getMonth() + 6, 1), amount: 2500000 },
-      { id: '3', date: new Date(baseDate.getFullYear() + 1, baseDate.getMonth(), 1), amount: 2000000 },
-      { id: '4', date: new Date(baseDate.getFullYear() + 1, baseDate.getMonth() + 6, 1), amount: 1500000 },
+      { id: '1', date: baseDate, amount: 750000 },
+      { id: '2', date: new Date(2026, 3, 8), amount: 500000 },
+      { id: '3', date: new Date(2026, 8, 8), amount: 800000 },
     ]);
+    setRateChanges([]);
   };
 
   return (
@@ -115,7 +184,7 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
           </div>
           <Button variant="ghost" size="sm" onClick={loadSampleData} className="text-primary hover:text-primary hover:bg-primary/10">
             <RotateCcw className="w-4 h-4 mr-2" />
-            Load Sample
+            Sample Data
           </Button>
         </div>
       </CardHeader>
@@ -143,7 +212,7 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="rate">Interest Rate (% p.a.)</Label>
+            <Label htmlFor="rate">Initial Rate (% p.a.)</Label>
             <Input 
               id="rate" 
               type="number" 
@@ -155,28 +224,39 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
           </div>
           <div className="space-y-2">
             <Label>Loan Start Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal h-11",
-                    !startDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
+            <DateInput date={startDate} onChange={setStartDate} />
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <Label className="text-base font-semibold">Interest Rate Changes</Label>
+            <Button variant="outline" size="sm" onClick={addRateChange} className="border-dashed border-primary/40 text-primary">
+              <Plus className="w-4 h-4 mr-2" /> Add Change
+            </Button>
+          </div>
+          <div className="space-y-3">
+            {rateChanges.map((change) => (
+              <div key={change.id} className="flex gap-3 items-end">
+                <div className="grid grid-cols-2 gap-3 flex-1">
+                  <DateInput label="Date" date={change.date} onChange={(d) => updateRateChange(change.id, 'date', d)} />
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">New Rate (%)</Label>
+                    <Input 
+                      type="number" 
+                      step="0.01"
+                      value={change.rate}
+                      onChange={(e) => updateRateChange(change.id, 'rate', parseFloat(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => removeRateChange(change.id)} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="w-4 h-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={(date) => date && setStartDate(date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -185,40 +265,16 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <Label className="text-base font-semibold">Disbursal Schedule</Label>
-            <Button variant="outline" size="sm" onClick={addDisbursal} className="border-dashed border-primary/40 text-primary hover:border-primary">
+            <Button variant="outline" size="sm" onClick={addDisbursal} className="border-dashed border-primary/40 text-primary">
               <Plus className="w-4 h-4 mr-2" /> Add Phase
             </Button>
           </div>
 
           <div className="space-y-3">
             {disbursals.map((disbursal, index) => (
-              <div key={disbursal.id} className="flex gap-3 items-end animate-in fade-in slide-in-from-left-4 duration-300">
+              <div key={disbursal.id} className="flex gap-3 items-end">
                 <div className="grid grid-cols-2 gap-3 flex-1">
-                  <div className="space-y-1">
-                    {index === 0 && <Label className="text-xs text-muted-foreground">Date</Label>}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !disbursal.date && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                          {disbursal.date ? format(disbursal.date, "dd MMM yyyy") : <span>Pick date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={disbursal.date}
-                          onSelect={(date) => date && updateDisbursal(disbursal.id, 'date', date)}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+                  <DateInput label={index === 0 ? "Date" : undefined} date={disbursal.date} onChange={(d) => updateDisbursal(disbursal.id, 'date', d)} />
                   <div className="space-y-1">
                     {index === 0 && <Label className="text-xs text-muted-foreground">Amount (₹)</Label>}
                     <Input 
@@ -241,19 +297,6 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
             ))}
           </div>
         </div>
-
-        {onSave && (
-          <div className="pt-4 border-t flex gap-2">
-            <Input 
-              placeholder="Calculation Name (e.g. My Dream Home)" 
-              value={calculationName}
-              onChange={(e) => setCalculationName(e.target.value)}
-            />
-            <Button onClick={() => onSave(calculationName)} disabled={!calculationName}>
-              Save
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

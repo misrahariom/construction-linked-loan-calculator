@@ -1,8 +1,13 @@
-import { addMonths, differenceInDays, addDays, format } from "date-fns";
+import { addMonths, differenceInDays, addDays, format, isBefore, isSameDay } from "date-fns";
 
 export interface Disbursal {
   date: Date;
   amount: number;
+}
+
+export interface InterestRateChange {
+  date: Date;
+  rate: number;
 }
 
 export interface EMIPayment {
@@ -14,6 +19,7 @@ export interface EMIPayment {
   principalPaid: number;
   closingPrincipal: number;
   phase?: number;
+  rate?: number;
 }
 
 export interface PhaseInfo {
@@ -24,6 +30,7 @@ export interface PhaseInfo {
   disbursalAdded: number;
   remainingTenureMonths: number;
   emi: number;
+  rate: number;
 }
 
 export interface CalculationResult {
@@ -40,56 +47,59 @@ export interface CalculationResult {
 export function calculateLoan(
   totalLoanApproved: number,
   loanTenureYears: number,
-  interestRateAnnual: number,
+  initialInterestRate: number,
   startDate: Date,
-  disbursals: Disbursal[]
+  disbursals: Disbursal[],
+  interestRateChanges: InterestRateChange[] = []
 ): CalculationResult {
   const sortedDisbursals = [...disbursals].sort(
     (a, b) => a.date.getTime() - b.date.getTime()
   );
 
-  // Core params
-  const monthlyRate = interestRateAnnual / 12 / 100;
-  // Loan end date is fixed from start date
+  const sortedRateChanges = [...interestRateChanges].sort(
+    (a, b) => a.date.getTime() - b.date.getTime()
+  );
+
   const loanEndDate = addMonths(startDate, loanTenureYears * 12);
   
   let currentDate = new Date(startDate);
   let currentPrincipal = 0;
   let currentPhaseIndex = 0;
+  let currentInterestRate = initialInterestRate;
   
   const schedule: EMIPayment[] = [];
   const phases: PhaseInfo[] = [];
 
-  // Helper to find next disbursal after a given date
-  const getNextDisbursal = (afterDate: Date) => {
-    return sortedDisbursals.find(d => d.date.getTime() > afterDate.getTime());
-  };
-
-  // We iterate month by month until loan is paid off or we hit a safety limit (e.g. 50 years)
-  // Or simply until loan end date if strictly following tenure
-  
-  // Actually, standard logic: iterate month by month.
-  // Before calculating EMI for the month, check if a disbursal happened.
-  
   let totalInterest = 0;
   let totalDisbursed = 0;
   
-  // Initialize with first disbursal if it exists at start date
-  // Usually disbursals happen on specific dates.
-  // We'll advance time month by month.
-  
-  const maxMonths = loanTenureYears * 12 + 120; // Safety buffer
-  
+  const maxMonths = loanTenureYears * 12 + 120;
   let currentEmi = 0;
   
-  // Track processed disbursals to avoid double counting
   const processedDisbursals = new Set<number>();
+  const processedRateChanges = new Set<number>();
 
   for (let month = 1; month <= maxMonths; month++) {
     const monthStartDate = currentDate;
     const monthEndDate = addMonths(monthStartDate, 1);
     
-    // Check for disbursals in this month window (inclusive start, exclusive end)
+    // Check for rate changes first
+    const monthRateChanges = sortedRateChanges.filter(r => 
+      r.date.getTime() >= monthStartDate.getTime() && 
+      r.date.getTime() < monthEndDate.getTime() &&
+      !processedRateChanges.has(r.date.getTime())
+    );
+
+    let rateChanged = false;
+    if (monthRateChanges.length > 0) {
+      // Use the last rate change in the month
+      const lastChange = monthRateChanges[monthRateChanges.length - 1];
+      currentInterestRate = lastChange.rate;
+      monthRateChanges.forEach(r => processedRateChanges.has(r.date.getTime()));
+      rateChanged = true;
+    }
+
+    // Check for disbursals
     const monthDisbursals = sortedDisbursals.filter(d => 
       d.date.getTime() >= monthStartDate.getTime() && 
       d.date.getTime() < monthEndDate.getTime() &&
@@ -109,20 +119,18 @@ export function calculateLoan(
       principalChanged = true;
     }
 
-    // Recalculate EMI if principal changed or it's the very first month
-    if (principalChanged) {
-       // Calculate remaining tenure from NOW until loanEndDate
+    // Recalculate EMI if principal changed OR rate changed
+    if (principalChanged || rateChanged) {
        const daysRemaining = differenceInDays(loanEndDate, monthStartDate);
-       const monthsRemaining = Math.max(1, daysRemaining / 30.4375); // Approx days per month
+       const monthsRemaining = Math.max(1, daysRemaining / 30.4375);
+       const monthlyRate = currentInterestRate / 12 / 100;
        
        if (currentPrincipal > 0) {
-         // Standard EMI Formula: P * r * (1+r)^n / ((1+r)^n - 1)
-         const r = monthlyRate;
-         const n = monthsRemaining;
-         
-         if (r === 0) {
-           currentEmi = currentPrincipal / n;
+         if (monthlyRate === 0) {
+           currentEmi = currentPrincipal / monthsRemaining;
          } else {
+           const n = monthsRemaining;
+           const r = monthlyRate;
            const numerator = currentPrincipal * r * Math.pow(1 + r, n);
            const denominator = Math.pow(1 + r, n) - 1;
            currentEmi = numerator / denominator;
@@ -134,32 +142,29 @@ export function calculateLoan(
        phases.push({
          phaseIndex: currentPhaseIndex++,
          startDate: monthStartDate,
-         endDate: null, // Will update when next phase starts
+         endDate: null,
          principalAtStart: currentPrincipal,
          disbursalAdded: newDisbursalAmount,
          remainingTenureMonths: monthsRemaining,
-         emi: currentEmi
+         emi: currentEmi,
+         rate: currentInterestRate
        });
        
-       // Close previous phase
        if (phases.length > 1) {
          phases[phases.length - 2].endDate = monthStartDate;
        }
     }
 
     if (currentPrincipal <= 10 && totalDisbursed > 0 && sortedDisbursals.every(d => processedDisbursals.has(d.date.getTime()))) {
-      // Loan closed
       break;
     }
 
-    // Monthly Calculation
+    const monthlyRate = currentInterestRate / 12 / 100;
     const interest = currentPrincipal * monthlyRate;
     let principalPaid = currentEmi - interest;
     
-    // Safety check: last payment adjustment
     if (principalPaid > currentPrincipal) {
       principalPaid = currentPrincipal;
-      // Adjust EMI for last month
       currentEmi = principalPaid + interest; 
     }
 
@@ -173,7 +178,8 @@ export function calculateLoan(
       interest,
       principalPaid,
       closingPrincipal,
-      phase: currentPhaseIndex
+      phase: currentPhaseIndex,
+      rate: currentInterestRate
     });
 
     totalInterest += interest;
@@ -181,7 +187,6 @@ export function calculateLoan(
     currentDate = monthEndDate;
   }
 
-  // Close the last phase
   if (phases.length > 0) {
     phases[phases.length - 1].endDate = currentDate;
   }
