@@ -1,0 +1,179 @@
+Build a web app called “Construction Linked Home Loan EMI Calculator”.
+
+Goal
+Calculate EMI for a home loan where the bank disburses the loan in multiple stages (construction linked plan). EMI must change after each disbursal.
+
+Core inputs
+
+Total loan approved (example: 75,00,000)
+
+Loan tenure in years (example: 24)
+
+Annual interest rate in % (example: 8.5)
+
+Start date (loan sanction / first disbursal date)
+
+Disbursal schedule as a table with rows:
+
+Disbursal date
+
+Disbursal amount
+
+Rules
+
+EMI is calculated only on the amount disbursed so far.
+
+Each time a new disbursal happens, EMI is recalculated.
+
+The new EMI is calculated on:
+
+Outstanding principal remaining from all previous disbursals combined
+
+Plus the new disbursed amount
+
+For the remaining tenure from that disbursal date until loan end date
+
+Tenure handling
+
+Loan end date = start date + tenure years
+
+Remaining tenure must be computed in days (not only months)
+
+Convert remaining tenure into months using:
+remaining_months = remaining_days / 30.4375
+
+Round remaining months to 2 decimals for calculation.
+
+EMI formula
+Use standard EMI formula for monthly payments:
+
+monthly_rate = annual_rate / 12 / 100
+EMI = P * r * (1+r)^n / ((1+r)^n - 1)
+
+Where
+P = principal outstanding at the moment of recalculation
+r = monthly_rate
+n = remaining_months
+
+Amortization logic
+For each EMI period between disbursals:
+
+Simulate month-by-month
+
+For each month:
+interest = principal * monthly_rate
+principal_paid = EMI - interest
+principal = principal - principal_paid
+
+When next disbursal date occurs:
+
+Add the new disbursed amount to principal
+
+Recompute remaining tenure
+
+Recompute EMI
+
+Outputs
+
+EMI timeline table:
+
+Phase number
+
+Phase start date
+
+Phase end date
+
+Principal at phase start
+
+Disbursal added
+
+Remaining tenure months
+
+EMI for this phase
+
+Month-by-month amortization table:
+
+Month date
+
+Opening principal
+
+EMI
+
+Interest
+
+Principal paid
+
+Closing principal
+
+Disbursal added (if any)
+
+Summary:
+
+Total interest paid
+
+Total amount paid
+
+Total disbursed
+
+Final closure date
+
+Final EMI
+
+UI requirements
+
+Clean layout with 2 sections:
+Left: inputs
+Right: results
+
+Disbursal schedule must allow:
+Add row
+Remove row
+Sort by date automatically
+
+Validate:
+Disbursal dates must be >= start date
+Total disbursed cannot exceed approved loan
+Interest rate > 0
+Tenure > 0
+
+Include “Load sample data” button using:
+Approved: 75,00,000
+Tenure: 24 years
+Rate: 8.5%
+Start date: 2026-01-01
+Disbursals:
+2026-01-01 -> 7,50,000
+2026-04-08 -> 5,00,000
+2026-09-08 -> 8,00,000
+
+Tech requirements
+
+Use React + TypeScript
+
+No backend required
+
+Use a small date library (date-fns)
+
+Use currency formatting for INR
+
+Show charts:
+
+Outstanding principal over time
+
+EMI changes over time
+
+Edge cases
+
+If EMI becomes smaller than monthly interest, flag error (loan will never close)
+
+If last disbursal happens after loan end date, reject
+
+If remaining tenure is less than 1 month, treat as 1 month
+
+Deliverables
+
+Full working code
+
+Single page app
+
+Easy to run with npm install and npm run dev
