@@ -1,9 +1,9 @@
 import { 
   Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend
+  LineChart, Line
 } from 'recharts';
 import { format } from "date-fns";
-import { Download, IndianRupee, Printer } from "lucide-react";
+import { IndianRupee, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
@@ -20,6 +20,15 @@ import type { CalculationResult } from "@/lib/calculator";
 
 interface LoanResultsProps {
   data: CalculationResult | null;
+  inputs?: {
+    totalLoan: number;
+    tenureYears: number;
+    interestRate: number;
+    startDate: Date;
+    fullEmiAtStart: number;
+    rateChanges: any[];
+    extraPayments: any[];
+  };
 }
 
 const formatCurrency = (amount: number) => {
@@ -30,7 +39,7 @@ const formatCurrency = (amount: number) => {
   }).format(amount);
 };
 
-export function LoanResults({ data }: LoanResultsProps) {
+export function LoanResults({ data, inputs }: LoanResultsProps) {
   if (!data) {
     return (
       <Card className="h-full flex items-center justify-center bg-muted/20 border-dashed min-h-[400px]">
@@ -58,9 +67,59 @@ export function LoanResults({ data }: LoanResultsProps) {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 print:space-y-4">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 print:space-y-8">
+      {/* Print-only Header with Inputs */}
+      <div className="hidden print:block space-y-6">
+        <div className="flex justify-between items-start border-b pb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-primary">FinCalc Report</h1>
+            <p className="text-sm text-muted-foreground">Construction Linked Home Loan EMI Analysis</p>
+          </div>
+          <div className="text-right text-xs text-muted-foreground">
+            Generated on {format(new Date(), "PPP")}
+          </div>
+        </div>
+
+        {inputs && (
+          <div className="grid grid-cols-2 gap-8 text-sm border p-4 rounded-lg">
+            <div className="space-y-2">
+              <h3 className="font-bold border-b pb-1">Primary Loan Details</h3>
+              <div className="flex justify-between"><span>Approved Loan:</span> <strong>{formatCurrency(inputs.totalLoan)}</strong></div>
+              <div className="flex justify-between"><span>Tenure:</span> <strong>{inputs.tenureYears} Years</strong></div>
+              <div className="flex justify-between"><span>Initial Interest Rate:</span> <strong>{inputs.interestRate}%</strong></div>
+              <div className="flex justify-between"><span>Start Date:</span> <strong>{format(inputs.startDate, "PPP")}</strong></div>
+              {inputs.fullEmiAtStart > 0 && (
+                <div className="flex justify-between text-primary"><span>Target Monthly EMI:</span> <strong>{formatCurrency(inputs.fullEmiAtStart)}</strong></div>
+              )}
+            </div>
+            <div className="space-y-4">
+              {inputs.rateChanges.length > 0 && (
+                <div className="space-y-1">
+                  <h3 className="font-bold border-b pb-1">Interest Rate Changes</h3>
+                  {inputs.rateChanges.map((rc, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{format(new Date(rc.date), "dd MMM yyyy")}:</span> <strong>{rc.rate}%</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {inputs.extraPayments.length > 0 && (
+                <div className="space-y-1">
+                  <h3 className="font-bold border-b pb-1">Extra Principal Payments</h3>
+                  {inputs.extraPayments.map((ep, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{format(new Date(ep.date), "dd MMM yyyy")}:</span> <strong>{formatCurrency(ep.amount)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-2 print:gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-2 print:gap-4 print:break-inside-avoid">
         <Card className="bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20 print:bg-white print:text-black print:border print:shadow-none">
           <CardContent className="pt-6 print:pt-4">
             <p className="text-sm opacity-80 mb-1 print:opacity-100">Total Amount Paid</p>
@@ -88,11 +147,11 @@ export function LoanResults({ data }: LoanResultsProps) {
       </div>
 
       {/* EMI Phases Table */}
-      <Card className="print:border-none print:shadow-none">
+      <Card className="print:border print:shadow-none print:break-inside-avoid">
         <CardHeader className="pb-3 px-4">
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>EMI Timeline</CardTitle>
+              <CardTitle>Disbursal Phases & EMI Timeline</CardTitle>
               <CardDescription className="print:hidden">How your EMI changes with each disbursal</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={handlePrint} className="print:hidden">
@@ -130,29 +189,34 @@ export function LoanResults({ data }: LoanResultsProps) {
         </CardContent>
       </Card>
 
-      {/* Amortization Schedule (Expanded for Print) */}
+      <div className="print:break-before-page"></div>
+
+      {/* Amortization Schedule (Visible for Print) */}
       <div className="print:block hidden pt-4">
-        <h3 className="text-lg font-bold mb-4">Full Amortization Schedule</h3>
+        <div className="flex justify-between items-end border-b pb-2 mb-4">
+          <h3 className="text-xl font-bold">Amortization Schedule</h3>
+          <p className="text-xs text-muted-foreground">Detailed month-by-month breakdown</p>
+        </div>
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Month</TableHead>
-              <TableHead className="text-right">Opening (₹)</TableHead>
-              <TableHead className="text-right">EMI (₹)</TableHead>
-              <TableHead className="text-right">Interest (₹)</TableHead>
-              <TableHead className="text-right">Extra (₹)</TableHead>
-              <TableHead className="text-right">Closing (₹)</TableHead>
+            <TableRow className="bg-muted/30">
+              <TableHead className="py-2">Month</TableHead>
+              <TableHead className="text-right py-2">Opening (₹)</TableHead>
+              <TableHead className="text-right py-2">EMI (₹)</TableHead>
+              <TableHead className="text-right py-2">Interest (₹)</TableHead>
+              <TableHead className="text-right py-2">Extra (₹)</TableHead>
+              <TableHead className="text-right py-2">Closing (₹)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {schedule.map((row) => (
-              <TableRow key={row.month} className="text-xs border-b border-gray-100">
-                <TableCell>{format(row.date, "MMM yyyy")}</TableCell>
-                <TableCell className="text-right">{formatCurrency(row.openingPrincipal)}</TableCell>
-                <TableCell className="text-right font-medium">{formatCurrency(row.emi)}</TableCell>
-                <TableCell className="text-right text-destructive/80">{formatCurrency(row.interest)}</TableCell>
-                <TableCell className="text-right text-primary">{formatCurrency(row.extraPaid)}</TableCell>
-                <TableCell className="text-right font-medium">{formatCurrency(row.closingPrincipal)}</TableCell>
+              <TableRow key={row.month} className="text-[9pt] border-b border-gray-100 h-8">
+                <TableCell className="py-1">{format(row.date, "MMM yyyy")}</TableCell>
+                <TableCell className="text-right py-1">{formatCurrency(row.openingPrincipal)}</TableCell>
+                <TableCell className="text-right font-medium py-1">{formatCurrency(row.emi)}</TableCell>
+                <TableCell className="text-right text-destructive/80 py-1">{formatCurrency(row.interest)}</TableCell>
+                <TableCell className="text-right text-primary py-1">{formatCurrency(row.extraPaid)}</TableCell>
+                <TableCell className="text-right font-medium py-1">{formatCurrency(row.closingPrincipal)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

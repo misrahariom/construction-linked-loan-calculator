@@ -39,21 +39,41 @@
 
 @media print {
   @page {
-    margin: 1cm;
-    size: A4 portrait;
+    margin: 1.5cm;
+    size: A4;
   }
   
   body {
     background: white !important;
     color: black !important;
-    font-size: 10pt;
+    font-size: 11pt;
   }
 
   .print\:hidden {
     display: none !important;
   }
 
-  header, .History, button:not(.print-only) {
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:flex {
+    display: flex !important;
+  }
+
+  .print\:grid {
+    display: grid !important;
+  }
+
+  .print\:break-before-page {
+    break-before: page;
+  }
+
+  .print\:break-inside-avoid {
+    break-inside: avoid;
+  }
+
+  header, button, footer {
     display: none !important;
   }
 
@@ -64,16 +84,8 @@
     margin: 0 !important;
   }
 
-  .xl\:col-span-4 {
-    display: none !important;
-  }
-
-  .xl\:col-span-8 {
-    width: 100% !important;
-  }
-
-  * {
-    box-shadow: none !important;
-    border-color: #eee !important;
+  /* Force chart area to hide if it doesn't print well */
+  canvas {
+    max-width: 100% !important;
   }
 }

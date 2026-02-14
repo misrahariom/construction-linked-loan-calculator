@@ -9,9 +9,11 @@ import { useCreateCalculation } from "@/hooks/use-calculations";
 
 export default function Home() {
   const [result, setResult] = useState<CalculationResult | null>(null);
+  const [lastInputs, setLastInputs] = useState<LoanInputData | null>(null);
   const { mutate: saveCalculation } = useCreateCalculation();
 
   const handleCalculate = (data: LoanInputData) => {
+    setLastInputs(data);
     const calcResult = calculateLoan(
       data.totalLoan,
       data.tenureYears,
@@ -27,7 +29,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background font-sans selection:bg-primary/10">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 print:hidden">
         <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0 mx-auto px-4 sm:px-8">
           <div className="flex gap-2 items-center text-primary">
             <Calculator className="h-6 w-6" />
@@ -48,8 +50,8 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-8 py-8">
-        <div className="mb-8 text-center sm:text-left space-y-2">
+      <main className="container mx-auto px-4 sm:px-8 py-8 print:p-0 print:m-0">
+        <div className="mb-8 text-center sm:text-left space-y-2 print:hidden">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground font-display">
             Construction Linked EMI Calculator
           </h1>
@@ -59,7 +61,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-          <div className="xl:col-span-4 space-y-6">
+          <div className="xl:col-span-4 space-y-6 print:hidden">
             <LoanInputs onCalculate={handleCalculate} />
             
             <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50 flex gap-3 text-sm text-blue-800 dark:text-blue-200">
@@ -70,8 +72,8 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="xl:col-span-8">
-            <LoanResults data={result} />
+          <div className="xl:col-span-8 print:col-span-12">
+            <LoanResults data={result} inputs={lastInputs || undefined} />
           </div>
         </div>
       </main>
