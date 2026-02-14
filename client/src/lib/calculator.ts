@@ -58,7 +58,8 @@ export function calculateLoan(
   startDate: Date,
   disbursals: Disbursal[],
   interestRateChanges: InterestRateChange[] = [],
-  extraPayments: ExtraPayment[] = []
+  extraPayments: ExtraPayment[] = [],
+  fullEmiAtStart: number = 0
 ): CalculationResult {
   const sortedDisbursals = [...disbursals].sort(
     (a, b) => a.date.getTime() - b.date.getTime()
@@ -86,7 +87,7 @@ export function calculateLoan(
   let totalDisbursed = 0;
   let totalExtraPaid = 0;
   
-  const maxMonths = loanTenureYears * 12 + 120;
+  const maxMonths = 600; // Increased safety limit for very long terms or small extra payments
   let currentEmi = 0;
   
   const processedDisbursals = new Set<number>();
@@ -132,7 +133,7 @@ export function calculateLoan(
       principalChanged = true;
     }
 
-    // Recalculate EMI if principal changed OR rate changed
+    // Recalculate minimum EMI if principal changed OR rate changed
     if (principalChanged || rateChanged) {
        const daysRemaining = differenceInDays(loanEndDate, monthStartDate);
        const monthsRemaining = Math.max(1, daysRemaining / 30.4375);
@@ -159,7 +160,7 @@ export function calculateLoan(
          principalAtStart: currentPrincipal,
          disbursalAdded: newDisbursalAmount,
          remainingTenureMonths: monthsRemaining,
-         emi: currentEmi,
+         emi: Math.max(currentEmi, fullEmiAtStart),
          rate: currentInterestRate
        });
        
@@ -169,41 +170,50 @@ export function calculateLoan(
     }
 
     // Stop if loan is closed
-    if (currentPrincipal <= 10 && totalDisbursed > 0 && sortedDisbursals.every(d => processedDisbursals.has(d.date.getTime()))) {
+    if (currentPrincipal <= 0.01 && totalDisbursed > 0 && sortedDisbursals.every(d => processedDisbursals.has(d.date.getTime()))) {
       break;
     }
 
     const monthlyRate = currentInterestRate / 12 / 100;
     const interest = currentPrincipal * monthlyRate;
-    let principalPaid = currentEmi - interest;
     
-    // Check for extra payments this month
+    // User wants to pay at least fullEmiAtStart if provided, or the calculated currentEmi
+    let emiToPay = Math.max(currentEmi, fullEmiAtStart);
+    let principalPaid = emiToPay - interest;
+    
+    // Check for explicit extra payments this month
     const monthExtraPayments = sortedExtraPayments.filter(p => 
       p.date.getTime() >= monthStartDate.getTime() && 
       p.date.getTime() < monthEndDate.getTime() &&
       !processedExtraPayments.has(p.date.getTime())
     );
 
-    let monthExtraAmount = 0;
+    let manualExtraAmount = 0;
     monthExtraPayments.forEach(p => {
-      monthExtraAmount += p.amount;
+      manualExtraAmount += p.amount;
       processedExtraPayments.add(p.date.getTime());
     });
 
     if (principalPaid < 0) principalPaid = 0;
     
-    let totalPrincipalReduction = principalPaid + monthExtraAmount;
+    // Total extra is manual extra + whatever extra from fullEmiAtStart over currentEmi
+    let systemicExtra = 0;
+    if (fullEmiAtStart > currentEmi && currentEmi > 0) {
+      systemicExtra = fullEmiAtStart - currentEmi;
+    }
+
+    let totalPrincipalReduction = principalPaid + manualExtraAmount;
     
     if (totalPrincipalReduction > currentPrincipal) {
       totalPrincipalReduction = currentPrincipal;
-      // Adjust EMI/Interest split if needed, but for extra payments we mostly care about principal reduction
-      if (monthExtraAmount > currentPrincipal) {
-        monthExtraAmount = currentPrincipal;
+      // Adjust principalPaid vs extra for reporting
+      if (manualExtraAmount > currentPrincipal) {
+        manualExtraAmount = currentPrincipal;
         principalPaid = 0;
       } else {
-        principalPaid = currentPrincipal - monthExtraAmount;
+        principalPaid = currentPrincipal - manualExtraAmount;
       }
-      currentEmi = principalPaid + interest;
+      emiToPay = principalPaid + interest;
     }
 
     const closingPrincipal = currentPrincipal - totalPrincipalReduction;
@@ -212,44 +222,24 @@ export function calculateLoan(
       month,
       date: monthStartDate,
       openingPrincipal: currentPrincipal,
-      emi: currentEmi,
+      emi: emiToPay,
       interest,
       principalPaid,
-      extraPaid: monthExtraAmount,
+      extraPaid: manualExtraAmount + (emiToPay > currentEmi ? (emiToPay - Math.max(currentEmi, interest)) : 0),
       closingPrincipal,
       phase: currentPhaseIndex,
       rate: currentInterestRate
     });
 
     totalInterest += interest;
-    totalExtraPaid += monthExtraAmount;
+    totalExtraPaid += schedule[schedule.length - 1].extraPaid;
     currentPrincipal = closingPrincipal;
     currentDate = monthEndDate;
 
-    // After an extra payment, the EMI might need recalculation if we want to maintain tenure,
-    // but standard behavior is usually to maintain EMI and reduce tenure.
-    // However, the rule says "EMI is calculated on outstanding principal".
-    // If we want to maintain the loan end date, we MUST recalculate EMI after extra payment too.
-    if (monthExtraAmount > 0) {
-      const daysRemaining = differenceInDays(loanEndDate, monthEndDate);
-      const monthsRemaining = Math.max(0, daysRemaining / 30.4375);
-      const r = currentInterestRate / 12 / 100;
-      
-      if (currentPrincipal > 0 && monthsRemaining > 0) {
-        if (r === 0) {
-          currentEmi = currentPrincipal / monthsRemaining;
-        } else {
-          const n = monthsRemaining;
-          const numerator = currentPrincipal * r * Math.pow(1 + r, n);
-          const denominator = Math.pow(1 + r, n) - 1;
-          currentEmi = numerator / denominator;
-        }
-      } else if (currentPrincipal > 0) {
-        currentEmi = currentPrincipal; // Pay off in last fraction
-      } else {
-        currentEmi = 0;
-      }
-    }
+    // After principal reduction, standard behavior is to keep EMI and reduce term.
+    // If we wanted to keep term, we'd recalculate currentEmi here. 
+    // The user's request "reduce the term" implies we should NOT recalculate minimum EMI to keep the end date,
+    // but rather keep the EMI higher and let it finish early.
   }
 
   if (phases.length > 0) {
@@ -261,7 +251,7 @@ export function calculateLoan(
     phases,
     summary: {
       totalInterest,
-      totalAmountPaid: totalDisbursed + totalInterest + totalExtraPaid,
+      totalAmountPaid: totalDisbursed + totalInterest,
       totalDisbursed,
       totalExtraPaid,
       closureDate: currentDate

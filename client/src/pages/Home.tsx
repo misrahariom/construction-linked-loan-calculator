@@ -18,7 +18,9 @@ export default function Home() {
       data.interestRate,
       data.startDate,
       data.disbursals,
-      data.rateChanges
+      data.rateChanges,
+      data.extraPayments,
+      data.fullEmiAtStart
     );
     setResult(calcResult);
   };
@@ -63,7 +65,7 @@ export default function Home() {
             <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50 flex gap-3 text-sm text-blue-800 dark:text-blue-200">
               <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <p>
-                <strong>Pro Tip:</strong> Interest rate changes affect all subsequent payments. If the rate increases, your EMI will be recalculated for the remaining balance and tenure.
+                <strong>Pro Tip:</strong> Paying a "Full EMI" even during the construction phase significantly reduces your principal and total interest, helping you close the loan much faster.
               </p>
             </div>
           </div>

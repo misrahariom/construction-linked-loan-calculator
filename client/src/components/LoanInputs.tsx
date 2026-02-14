@@ -36,6 +36,7 @@ export interface LoanInputData {
   disbursals: DisbursalInput[];
   rateChanges: RateChangeInput[];
   extraPayments: ExtraPaymentInput[];
+  fullEmiAtStart: number;
 }
 
 interface LoanInputsProps {
@@ -92,6 +93,7 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
   const [totalLoan, setTotalLoan] = useState<string>("7500000");
   const [tenure, setTenure] = useState<string>("24");
   const [rate, setRate] = useState<string>("8.5");
+  const [fullEmiAtStart, setFullEmiAtStart] = useState<string>("0");
   const [startDate, setStartDate] = useState<Date>(new Date(2026, 0, 1));
   
   const [disbursals, setDisbursals] = useState<DisbursalInput[]>([
@@ -105,12 +107,13 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
 
   useEffect(() => {
     handleCalculate();
-  }, [totalLoan, tenure, rate, startDate, disbursals, rateChanges, extraPayments]);
+  }, [totalLoan, tenure, rate, fullEmiAtStart, startDate, disbursals, rateChanges, extraPayments]);
 
   const handleCalculate = () => {
     const loanAmount = parseFloat(totalLoan);
     const tenureYears = parseFloat(tenure);
     const interestRate = parseFloat(rate);
+    const targetEmi = parseFloat(fullEmiAtStart) || 0;
 
     if (!loanAmount || !tenureYears || !interestRate || disbursals.length === 0) return;
 
@@ -121,7 +124,8 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
       startDate,
       disbursals,
       rateChanges,
-      extraPayments
+      extraPayments,
+      fullEmiAtStart: targetEmi
     });
   };
 
@@ -151,6 +155,7 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
             setTotalLoan("7500000");
             setTenure("24");
             setRate("8.5");
+            setFullEmiAtStart("0");
             const baseDate = new Date(2026, 0, 1);
             setStartDate(baseDate);
             setDisbursals([
@@ -180,6 +185,10 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
           <div className="space-y-1">
             <Label htmlFor="rate">Initial Rate (%)</Label>
             <Input id="rate" type="number" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="targetEmi">Full EMI to pay (₹)</Label>
+            <Input id="targetEmi" type="number" value={fullEmiAtStart} onChange={(e) => setFullEmiAtStart(e.target.value)} placeholder="0" />
           </div>
           <div className="space-y-1">
             <Label>Start Date</Label>

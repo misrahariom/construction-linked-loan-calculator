@@ -13,6 +13,7 @@ export const calculations = pgTable("calculations", {
   disbursals: jsonb("disbursals").$type<{ date: string; amount: number }[]>().notNull(),
   interestRateChanges: jsonb("interest_rate_changes").$type<{ date: string; rate: number }[]>().notNull().default([]),
   extraPayments: jsonb("extra_payments").$type<{ date: string; amount: number }[]>().notNull().default([]),
+  fullEmiAtStart: numeric("full_emi_at_start").default("0"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
