@@ -10,6 +10,11 @@ export interface InterestRateChange {
   rate: number;
 }
 
+export interface ExtraPayment {
+  date: Date;
+  amount: number;
+}
+
 export interface EMIPayment {
   month: number;
   date: Date;
@@ -17,6 +22,7 @@ export interface EMIPayment {
   emi: number;
   interest: number;
   principalPaid: number;
+  extraPaid: number;
   closingPrincipal: number;
   phase?: number;
   rate?: number;
@@ -40,6 +46,7 @@ export interface CalculationResult {
     totalInterest: number;
     totalAmountPaid: number;
     totalDisbursed: number;
+    totalExtraPaid: number;
     closureDate: Date;
   };
 }
@@ -50,13 +57,18 @@ export function calculateLoan(
   initialInterestRate: number,
   startDate: Date,
   disbursals: Disbursal[],
-  interestRateChanges: InterestRateChange[] = []
+  interestRateChanges: InterestRateChange[] = [],
+  extraPayments: ExtraPayment[] = []
 ): CalculationResult {
   const sortedDisbursals = [...disbursals].sort(
     (a, b) => a.date.getTime() - b.date.getTime()
   );
 
   const sortedRateChanges = [...interestRateChanges].sort(
+    (a, b) => a.date.getTime() - b.date.getTime()
+  );
+
+  const sortedExtraPayments = [...extraPayments].sort(
     (a, b) => a.date.getTime() - b.date.getTime()
   );
 
@@ -72,18 +84,20 @@ export function calculateLoan(
 
   let totalInterest = 0;
   let totalDisbursed = 0;
+  let totalExtraPaid = 0;
   
   const maxMonths = loanTenureYears * 12 + 120;
   let currentEmi = 0;
   
   const processedDisbursals = new Set<number>();
   const processedRateChanges = new Set<number>();
+  const processedExtraPayments = new Set<number>();
 
   for (let month = 1; month <= maxMonths; month++) {
     const monthStartDate = currentDate;
     const monthEndDate = addMonths(monthStartDate, 1);
     
-    // Check for rate changes first
+    // Check for rate changes
     const monthRateChanges = sortedRateChanges.filter(r => 
       r.date.getTime() >= monthStartDate.getTime() && 
       r.date.getTime() < monthEndDate.getTime() &&
@@ -92,10 +106,9 @@ export function calculateLoan(
 
     let rateChanged = false;
     if (monthRateChanges.length > 0) {
-      // Use the last rate change in the month
       const lastChange = monthRateChanges[monthRateChanges.length - 1];
       currentInterestRate = lastChange.rate;
-      monthRateChanges.forEach(r => processedRateChanges.has(r.date.getTime()));
+      monthRateChanges.forEach(r => processedRateChanges.add(r.date.getTime()));
       rateChanged = true;
     }
 
@@ -125,7 +138,7 @@ export function calculateLoan(
        const monthsRemaining = Math.max(1, daysRemaining / 30.4375);
        const monthlyRate = currentInterestRate / 12 / 100;
        
-       if (currentPrincipal > 0) {
+       if (currentPrincipal > 0 && monthsRemaining > 0) {
          if (monthlyRate === 0) {
            currentEmi = currentPrincipal / monthsRemaining;
          } else {
@@ -155,6 +168,7 @@ export function calculateLoan(
        }
     }
 
+    // Stop if loan is closed
     if (currentPrincipal <= 10 && totalDisbursed > 0 && sortedDisbursals.every(d => processedDisbursals.has(d.date.getTime()))) {
       break;
     }
@@ -163,12 +177,36 @@ export function calculateLoan(
     const interest = currentPrincipal * monthlyRate;
     let principalPaid = currentEmi - interest;
     
-    if (principalPaid > currentPrincipal) {
-      principalPaid = currentPrincipal;
-      currentEmi = principalPaid + interest; 
+    // Check for extra payments this month
+    const monthExtraPayments = sortedExtraPayments.filter(p => 
+      p.date.getTime() >= monthStartDate.getTime() && 
+      p.date.getTime() < monthEndDate.getTime() &&
+      !processedExtraPayments.has(p.date.getTime())
+    );
+
+    let monthExtraAmount = 0;
+    monthExtraPayments.forEach(p => {
+      monthExtraAmount += p.amount;
+      processedExtraPayments.add(p.date.getTime());
+    });
+
+    if (principalPaid < 0) principalPaid = 0;
+    
+    let totalPrincipalReduction = principalPaid + monthExtraAmount;
+    
+    if (totalPrincipalReduction > currentPrincipal) {
+      totalPrincipalReduction = currentPrincipal;
+      // Adjust EMI/Interest split if needed, but for extra payments we mostly care about principal reduction
+      if (monthExtraAmount > currentPrincipal) {
+        monthExtraAmount = currentPrincipal;
+        principalPaid = 0;
+      } else {
+        principalPaid = currentPrincipal - monthExtraAmount;
+      }
+      currentEmi = principalPaid + interest;
     }
 
-    const closingPrincipal = currentPrincipal - principalPaid;
+    const closingPrincipal = currentPrincipal - totalPrincipalReduction;
 
     schedule.push({
       month,
@@ -177,14 +215,41 @@ export function calculateLoan(
       emi: currentEmi,
       interest,
       principalPaid,
+      extraPaid: monthExtraAmount,
       closingPrincipal,
       phase: currentPhaseIndex,
       rate: currentInterestRate
     });
 
     totalInterest += interest;
+    totalExtraPaid += monthExtraAmount;
     currentPrincipal = closingPrincipal;
     currentDate = monthEndDate;
+
+    // After an extra payment, the EMI might need recalculation if we want to maintain tenure,
+    // but standard behavior is usually to maintain EMI and reduce tenure.
+    // However, the rule says "EMI is calculated on outstanding principal".
+    // If we want to maintain the loan end date, we MUST recalculate EMI after extra payment too.
+    if (monthExtraAmount > 0) {
+      const daysRemaining = differenceInDays(loanEndDate, monthEndDate);
+      const monthsRemaining = Math.max(0, daysRemaining / 30.4375);
+      const r = currentInterestRate / 12 / 100;
+      
+      if (currentPrincipal > 0 && monthsRemaining > 0) {
+        if (r === 0) {
+          currentEmi = currentPrincipal / monthsRemaining;
+        } else {
+          const n = monthsRemaining;
+          const numerator = currentPrincipal * r * Math.pow(1 + r, n);
+          const denominator = Math.pow(1 + r, n) - 1;
+          currentEmi = numerator / denominator;
+        }
+      } else if (currentPrincipal > 0) {
+        currentEmi = currentPrincipal; // Pay off in last fraction
+      } else {
+        currentEmi = 0;
+      }
+    }
   }
 
   if (phases.length > 0) {
@@ -196,8 +261,9 @@ export function calculateLoan(
     phases,
     summary: {
       totalInterest,
-      totalAmountPaid: totalDisbursed + totalInterest,
+      totalAmountPaid: totalDisbursed + totalInterest + totalExtraPaid,
       totalDisbursed,
+      totalExtraPaid,
       closureDate: currentDate
     }
   };

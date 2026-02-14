@@ -8,66 +8,26 @@
   --font-sans: 'Plus Jakarta Sans', sans-serif;
   --font-display: 'Outfit', sans-serif;
 
-  /* Premium Financial Theme - Deep Blue & Emerald */
   --background: 210 20% 98%;
   --foreground: 222 47% 11%;
-
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
-
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
-
-  --primary: 221 83% 53%;        /* Vibrant Blue */
+  --primary: 221 83% 53%;
   --primary-foreground: 210 40% 98%;
-
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222 47% 11.2%;
-
   --muted: 210 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
-
-  --accent: 160 84% 39%;         /* Emerald Green for financial growth/success */
+  --accent: 160 84% 39%;
   --accent-foreground: 210 40% 98%;
-
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
   --ring: 221 83% 53%;
-
   --radius: 0.75rem;
-}
-
-.dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-
-  --accent: 160 84% 39%;
-  --accent-foreground: 210 40% 98%;
-
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
 }
 
 @layer base {
@@ -75,29 +35,45 @@
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans);
   }
-
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    @apply tracking-tight font-semibold;
-  }
 }
 
-/* Custom Utilities for Polish */
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@media print {
+  @page {
+    margin: 1cm;
+    size: A4 portrait;
   }
   
-  .glass-panel {
-    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl shadow-black/5;
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
   }
-  
-  .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
-  }
-}
 
-/* Smooth Scrolling */
-html {
-  scroll-behavior: smooth;
+  .print\:hidden {
+    display: none !important;
+  }
+
+  header, .History, button:not(.print-only) {
+    display: none !important;
+  }
+
+  .container {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .xl\:col-span-4 {
+    display: none !important;
+  }
+
+  .xl\:col-span-8 {
+    width: 100% !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    border-color: #eee !important;
+  }
 }

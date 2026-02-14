@@ -12,6 +12,7 @@ export const calculations = pgTable("calculations", {
   startDate: timestamp("start_date").notNull(),
   disbursals: jsonb("disbursals").$type<{ date: string; amount: number }[]>().notNull(),
   interestRateChanges: jsonb("interest_rate_changes").$type<{ date: string; rate: number }[]>().notNull().default([]),
+  extraPayments: jsonb("extra_payments").$type<{ date: string; amount: number }[]>().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
