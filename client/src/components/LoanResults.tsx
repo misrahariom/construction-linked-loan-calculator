@@ -28,6 +28,7 @@ interface LoanResultsProps {
     fullEmiAtStart: number;
     rateChanges: any[];
     extraPayments: any[];
+    disbursals: any[];
   };
 }
 
@@ -82,16 +83,33 @@ export function LoanResults({ data, inputs }: LoanResultsProps) {
 
         {inputs && (
           <div className="grid grid-cols-2 gap-8 text-sm border p-4 rounded-lg">
-            <div className="space-y-2">
-              <h3 className="font-bold border-b pb-1">Primary Loan Details</h3>
-              <div className="flex justify-between"><span>Approved Loan:</span> <strong>{formatCurrency(inputs.totalLoan)}</strong></div>
-              <div className="flex justify-between"><span>Tenure:</span> <strong>{inputs.tenureYears} Years</strong></div>
-              <div className="flex justify-between"><span>Initial Interest Rate:</span> <strong>{inputs.interestRate}%</strong></div>
-              <div className="flex justify-between"><span>Start Date:</span> <strong>{format(inputs.startDate, "PPP")}</strong></div>
-              {inputs.fullEmiAtStart > 0 && (
-                <div className="flex justify-between text-primary"><span>Target Monthly EMI:</span> <strong>{formatCurrency(inputs.fullEmiAtStart)}</strong></div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-bold border-b pb-1">Primary Loan Details</h3>
+                <div className="flex justify-between"><span>Approved Loan:</span> <strong>{formatCurrency(inputs.totalLoan)}</strong></div>
+                <div className="flex justify-between"><span>Tenure:</span> <strong>{inputs.tenureYears} Years</strong></div>
+                <div className="flex justify-between"><span>Initial Interest Rate:</span> <strong>{inputs.interestRate}%</strong></div>
+                <div className="flex justify-between"><span>Start Date:</span> <strong>{format(inputs.startDate, "PPP")}</strong></div>
+                {inputs.fullEmiAtStart > 0 && (
+                  <div className="flex justify-between text-primary"><span>Target Monthly EMI:</span> <strong>{formatCurrency(inputs.fullEmiAtStart)}</strong></div>
+                )}
+              </div>
+              
+              {inputs.disbursals && inputs.disbursals.length > 0 && (
+                <div className="space-y-1">
+                  <h3 className="font-bold border-b pb-1">Disbursal Summary</h3>
+                  {inputs.disbursals.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((d, i) => (
+                    <div key={i} className="flex justify-between text-xs">
+                      <span>{format(new Date(d.date), "dd MMM yyyy")}:</span> <strong>{formatCurrency(d.amount)}</strong>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-xs pt-1 border-t mt-1 font-bold">
+                    <span>Total Disbursed:</span> <span>{formatCurrency(inputs.disbursals.reduce((sum, d) => sum + d.amount, 0))}</span>
+                  </div>
+                </div>
               )}
             </div>
+
             <div className="space-y-4">
               {inputs.rateChanges.length > 0 && (
                 <div className="space-y-1">
