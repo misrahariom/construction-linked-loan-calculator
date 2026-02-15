@@ -19,7 +19,8 @@ export interface EMIPayment {
   month: number;
   date: Date;
   openingPrincipal: number;
-  emi: number;
+  emi: number; // Actual payment made
+  theoreticalEmi: number; // The "Current EMI" based on balance/tenure
   interest: number;
   principalPaid: number;
   extraPaid: number;
@@ -87,8 +88,8 @@ export function calculateLoan(
   let totalDisbursed = 0;
   let totalExtraPaid = 0;
   
-  const maxMonths = 600; // Increased safety limit for very long terms or small extra payments
-  let currentEmi = 0;
+  const maxMonths = 600; 
+  let currentMinEmi = 0;
   
   const processedDisbursals = new Set<number>();
   const processedRateChanges = new Set<number>();
@@ -141,16 +142,16 @@ export function calculateLoan(
        
        if (currentPrincipal > 0 && monthsRemaining > 0) {
          if (monthlyRate === 0) {
-           currentEmi = currentPrincipal / monthsRemaining;
+           currentMinEmi = currentPrincipal / monthsRemaining;
          } else {
            const n = monthsRemaining;
            const r = monthlyRate;
            const numerator = currentPrincipal * r * Math.pow(1 + r, n);
            const denominator = Math.pow(1 + r, n) - 1;
-           currentEmi = numerator / denominator;
+           currentMinEmi = numerator / denominator;
          }
        } else {
-         currentEmi = 0;
+         currentMinEmi = 0;
        }
 
        phases.push({
@@ -160,7 +161,7 @@ export function calculateLoan(
          principalAtStart: currentPrincipal,
          disbursalAdded: newDisbursalAmount,
          remainingTenureMonths: monthsRemaining,
-         emi: Math.max(currentEmi, fullEmiAtStart),
+         emi: Math.max(currentMinEmi, fullEmiAtStart),
          rate: currentInterestRate
        });
        
@@ -177,8 +178,7 @@ export function calculateLoan(
     const monthlyRate = currentInterestRate / 12 / 100;
     const interest = currentPrincipal * monthlyRate;
     
-    // User wants to pay at least fullEmiAtStart if provided, or the calculated currentEmi
-    let emiToPay = Math.max(currentEmi, fullEmiAtStart);
+    let emiToPay = Math.max(currentMinEmi, fullEmiAtStart);
     let principalPaid = emiToPay - interest;
     
     // Check for explicit extra payments this month
@@ -196,17 +196,10 @@ export function calculateLoan(
 
     if (principalPaid < 0) principalPaid = 0;
     
-    // Total extra is manual extra + whatever extra from fullEmiAtStart over currentEmi
-    let systemicExtra = 0;
-    if (fullEmiAtStart > currentEmi && currentEmi > 0) {
-      systemicExtra = fullEmiAtStart - currentEmi;
-    }
-
     let totalPrincipalReduction = principalPaid + manualExtraAmount;
     
     if (totalPrincipalReduction > currentPrincipal) {
       totalPrincipalReduction = currentPrincipal;
-      // Adjust principalPaid vs extra for reporting
       if (manualExtraAmount > currentPrincipal) {
         manualExtraAmount = currentPrincipal;
         principalPaid = 0;
@@ -222,24 +215,40 @@ export function calculateLoan(
       month,
       date: monthStartDate,
       openingPrincipal: currentPrincipal,
+      theoreticalEmi: currentMinEmi,
       emi: emiToPay,
       interest,
       principalPaid,
-      extraPaid: manualExtraAmount + (emiToPay > currentEmi ? (emiToPay - Math.max(currentEmi, interest)) : 0),
+      extraPaid: manualExtraAmount + (emiToPay > currentMinEmi ? (emiToPay - Math.max(currentMinEmi, interest)) : 0),
       closingPrincipal,
       phase: currentPhaseIndex,
       rate: currentInterestRate
     });
 
+    currentPrincipal = closingPrincipal;
     totalInterest += interest;
     totalExtraPaid += schedule[schedule.length - 1].extraPaid;
-    currentPrincipal = closingPrincipal;
     currentDate = monthEndDate;
 
-    // After principal reduction, standard behavior is to keep EMI and reduce term.
-    // If we wanted to keep term, we'd recalculate currentEmi here. 
-    // The user's request "reduce the term" implies we should NOT recalculate minimum EMI to keep the end date,
-    // but rather keep the EMI higher and let it finish early.
+    // Recalculate theoretical minimum EMI for next month based on reduction
+    const daysRemaining = differenceInDays(loanEndDate, monthEndDate);
+    const monthsRemaining = Math.max(0, daysRemaining / 30.4375);
+    const r = currentInterestRate / 12 / 100;
+    
+    if (currentPrincipal > 0 && monthsRemaining > 0) {
+      if (r === 0) {
+        currentMinEmi = currentPrincipal / monthsRemaining;
+      } else {
+        const n = monthsRemaining;
+        const numerator = currentPrincipal * r * Math.pow(1 + r, n);
+        const denominator = Math.pow(1 + r, n) - 1;
+        currentMinEmi = numerator / denominator;
+      }
+    } else if (currentPrincipal > 0) {
+      currentMinEmi = currentPrincipal;
+    } else {
+      currentMinEmi = 0;
+    }
   }
 
   if (phases.length > 0) {

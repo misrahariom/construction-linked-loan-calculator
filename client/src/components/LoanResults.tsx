@@ -169,7 +169,7 @@ export function LoanResults({ data, inputs }: LoanResultsProps) {
                   <TableHead className="text-right print:text-black">Principal (₹)</TableHead>
                   <TableHead className="text-right print:text-black">Disbursal (₹)</TableHead>
                   <TableHead className="text-center print:text-black">Tenure</TableHead>
-                  <TableHead className="text-right font-bold text-primary print:text-black">EMI (₹)</TableHead>
+                  <TableHead className="text-right font-bold text-primary print:text-black">Calculated EMI (₹)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -202,7 +202,8 @@ export function LoanResults({ data, inputs }: LoanResultsProps) {
             <TableRow className="bg-muted/30">
               <TableHead className="py-2">Month</TableHead>
               <TableHead className="text-right py-2">Opening (₹)</TableHead>
-              <TableHead className="text-right py-2">EMI (₹)</TableHead>
+              <TableHead className="text-right py-2">Current EMI (₹)</TableHead>
+              <TableHead className="text-right py-2">Paid EMI (₹)</TableHead>
               <TableHead className="text-right py-2">Interest (₹)</TableHead>
               <TableHead className="text-right py-2">Extra (₹)</TableHead>
               <TableHead className="text-right py-2">Closing (₹)</TableHead>
@@ -213,6 +214,7 @@ export function LoanResults({ data, inputs }: LoanResultsProps) {
               <TableRow key={row.month} className="text-[9pt] border-b border-gray-100 h-8">
                 <TableCell className="py-1">{format(row.date, "MMM yyyy")}</TableCell>
                 <TableCell className="text-right py-1">{formatCurrency(row.openingPrincipal)}</TableCell>
+                <TableCell className="text-right py-1 text-muted-foreground">{formatCurrency(row.theoreticalEmi)}</TableCell>
                 <TableCell className="text-right font-medium py-1">{formatCurrency(row.emi)}</TableCell>
                 <TableCell className="text-right text-destructive/80 py-1">{formatCurrency(row.interest)}</TableCell>
                 <TableCell className="text-right text-primary py-1">{formatCurrency(row.extraPaid)}</TableCell>
@@ -273,9 +275,10 @@ export function LoanResults({ data, inputs }: LoanResultsProps) {
                       <TableHead className="w-[80px]">#</TableHead>
                       <TableHead>Month</TableHead>
                       <TableHead className="text-right">Opening (₹)</TableHead>
-                      <TableHead className="text-right">EMI (₹)</TableHead>
+                      <TableHead className="text-right">Current EMI (₹)</TableHead>
+                      <TableHead className="text-right">Paid EMI (₹)</TableHead>
+                      <TableHead className="text-right">Interest (₹)</TableHead>
                       <TableHead className="text-right">Extra (₹)</TableHead>
-                      <TableHead className="text-right">Principal (₹)</TableHead>
                       <TableHead className="text-right">Closing (₹)</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -285,9 +288,10 @@ export function LoanResults({ data, inputs }: LoanResultsProps) {
                         <TableCell className="font-mono text-muted-foreground">{row.month}</TableCell>
                         <TableCell>{format(row.date, "MMM yyyy")}</TableCell>
                         <TableCell className="text-right text-muted-foreground">{formatCurrency(row.openingPrincipal)}</TableCell>
+                        <TableCell className="text-right text-muted-foreground italic">{formatCurrency(row.theoreticalEmi)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(row.emi)}</TableCell>
+                        <TableCell className="text-right text-destructive/80">{formatCurrency(row.interest)}</TableCell>
                         <TableCell className="text-right text-primary font-medium">{formatCurrency(row.extraPaid)}</TableCell>
-                        <TableCell className="text-right text-accent">{formatCurrency(row.principalPaid)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(row.closingPrincipal)}</TableCell>
                       </TableRow>
                     ))}
