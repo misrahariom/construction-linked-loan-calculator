@@ -90,17 +90,26 @@ const DateInput = ({ date, onChange, label }: { date: Date, onChange: (date: Dat
 };
 
 export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
-  const [totalLoan, setTotalLoan] = useState<string>("7500000");
-  const [tenure, setTenure] = useState<string>("24");
-  const [rate, setRate] = useState<string>("8.5");
-  const [fullEmiAtStart, setFullEmiAtStart] = useState<string>("0");
-  const [startDate, setStartDate] = useState<Date>(new Date(2026, 0, 1));
+  const [totalLoan, setTotalLoan] = useState<string>("3760000");
+  const [tenure, setTenure] = useState<string>("15");
+  const [rate, setRate] = useState<string>("8.65");
+  const [fullEmiAtStart, setFullEmiAtStart] = useState<string>("37400");
+  const [startDate, setStartDate] = useState<Date>(new Date(2023, 4, 31));
   
   const [disbursals, setDisbursals] = useState<DisbursalInput[]>([
-    { id: '1', date: new Date(2026, 0, 1), amount: 750000 }
+    { id: '1', date: new Date(2023, 4, 31), amount: 666600 },
+    { id: '2', date: new Date(2023, 8, 18), amount: 444400 },
+    { id: '3', date: new Date(2024, 0, 16), amount: 444400 },
+    { id: '4', date: new Date(2024, 2, 30), amount: 444400 },
+    { id: '5', date: new Date(2024, 8, 3), amount: 222000 },
+    { id: '6', date: new Date(2025, 2, 26), amount: 444600 },
   ]);
 
-  const [rateChanges, setRateChanges] = useState<RateChangeInput[]>([]);
+  const [rateChanges, setRateChanges] = useState<RateChangeInput[]>([
+    { id: 'r1', date: new Date(2025, 1, 15), rate: 8.4 },
+    { id: 'r2', date: new Date(2025, 3, 15), rate: 8.15 },
+    { id: 'r3', date: new Date(2025, 5, 15), rate: 7.65 },
+  ]);
   const [extraPayments, setExtraPayments] = useState<ExtraPaymentInput[]>([]);
 
   const [calculationName, setCalculationName] = useState("");
@@ -152,18 +161,25 @@ export function LoanInputs({ onCalculate, onSave }: LoanInputsProps) {
             <CardDescription>Configure your construction linked plan</CardDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={() => {
-            setTotalLoan("7500000");
-            setTenure("24");
-            setRate("8.5");
-            setFullEmiAtStart("0");
-            const baseDate = new Date(2026, 0, 1);
+            setTotalLoan("3760000");
+            setTenure("15");
+            setRate("8.65");
+            setFullEmiAtStart("37400");
+            const baseDate = new Date(2023, 4, 31);
             setStartDate(baseDate);
             setDisbursals([
-              { id: '1', date: baseDate, amount: 750000 },
-              { id: '2', date: new Date(2026, 3, 8), amount: 500000 },
-              { id: '3', date: new Date(2026, 8, 8), amount: 800000 },
+              { id: '1', date: baseDate, amount: 666600 },
+              { id: '2', date: new Date(2023, 8, 18), amount: 444400 },
+              { id: '3', date: new Date(2024, 0, 16), amount: 444400 },
+              { id: '4', date: new Date(2024, 2, 30), amount: 444400 },
+              { id: '5', date: new Date(2024, 8, 3), amount: 222000 },
+              { id: '6', date: new Date(2025, 2, 26), amount: 444600 },
             ]);
-            setRateChanges([]);
+            setRateChanges([
+              { id: 'r1', date: new Date(2025, 1, 15), rate: 8.4 },
+              { id: 'r2', date: new Date(2025, 3, 15), rate: 8.15 },
+              { id: 'r3', date: new Date(2025, 5, 15), rate: 7.65 },
+            ]);
             setExtraPayments([]);
           }} className="text-primary h-8 px-2">
             <RotateCcw className="w-4 h-4 mr-1" />

@@ -138,7 +138,7 @@ export function LoanResults({ data, inputs }: LoanResultsProps) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-2 print:gap-4 print:break-inside-avoid">
-        <Card className="bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20 print:bg-white print:text-black print:border print:shadow-none">
+        <Card className="bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20 print:bg-white print:text-black print:border print:border-gray-200 print:shadow-none">
           <CardContent className="pt-6 print:pt-4">
             <p className="text-sm opacity-80 mb-1 print:opacity-100">Total Amount Paid</p>
             <p className="text-2xl font-bold tracking-tight print:text-xl">{formatCurrency(summary.totalAmountPaid)}</p>
